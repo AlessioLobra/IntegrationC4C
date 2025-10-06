@@ -1,0 +1,15 @@
+{
+  "xsappname": "cap-saml-converter-${space}",
+  "tenant-mode": "dedicated",
+  "description": "Security profile for CAP SAML converter",
+  "scopes": [
+    { "name": "$XSAPPNAME.User", "description": "Default user scope" }
+  ],
+  "role-templates": [
+    {
+      "name": "User",
+      "description": "Default role",
+      "scope-references": [ "$XSAPPNAME.User" ]
+    }
+  ]
+}

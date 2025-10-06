@@ -1,0 +1,13 @@
+POST http://localhost:4004/odata/v4/saml-converter/GenerateAndExchange
+Content-Type: application/json
+ 
+{
+    "email": "ARIANNA.MIRABELLA@DEDEM.IT",
+    "certPath": "cert.pem",
+    "keyPath": "key.pem",
+    "issuer": "customIDP",
+    "audience": "https://dedem-integration.authentication.eu10.hana.ondemand.com",
+    "clientId": "sb-18e3afbb-78e7-4f41-a0ba-ebef740ae4ee!b160163|it-rt-dedem-integration!b117912",
+    "clientSecret": "ffa77c11-ff1b-411f-aa01-3f1208b7d6b0$7TOoLUH_THWQ8aSgTglDGuwlUkyOX_tGzdJSojZP8qI=",
+    "tokenEndpoint": "https://dedem-integration.authentication.eu10.hana.ondemand.com/oauth/token/alias/dedem-integration.aws-live-eu10"
+}

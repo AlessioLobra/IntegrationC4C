@@ -1,0 +1,32 @@
+{
+  "name": "cap-saml-converter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "CAP Application with custom SAML/OAuth flow",
+  "scripts": {
+    "start": "cds run",
+    "debug": "NODE_OPTIONS=--inspect npx cds serve --with-mocks",
+    "build:cf": "cds build --production"
+  },
+  "dependencies": {
+    "@cap-js/sqlite": "^2.0.2",
+    "@sap/cds": "^9.3.1",
+    "@xmldom/xmldom": "^0.8.10",
+    "axios": "^1.12.2",
+    "xml-crypto": "^6.1.2"
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": {
+          "database": "sqlite.db"
+        }
+      },
+      "auth": {
+        "kind": "mocked"
+      }
+    }
+  }
+}

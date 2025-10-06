@@ -1,0 +1,23 @@
+_schema-version: '3.1'
+ID: cap-saml-converter
+version: 1.0.0
+modules:
+  - name: cap-saml-converter-srv
+    type: nodejs
+    path: gen/srv
+    build-parameters:
+      builder: npm
+    parameters:
+      memory: 256M
+      disk-quota: 256M
+      command: node server.js
+    requires:
+      - name: cap-saml-converter-uaa
+
+resources:
+  - name: cap-saml-converter-uaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
