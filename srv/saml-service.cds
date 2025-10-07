@@ -12,6 +12,7 @@ service SamlConverterService @(path:{ value:'/saml-converter' }) {
     access_token  : String;
     token_type    : String;
     expires_in    : Integer;
+    exipres       : Integer;
   };
 
 }
