@@ -16,6 +16,14 @@
       "skipFiles": [
         "<node_internals>/**"
       ]
+    },
+     {
+      "name": "Remote Debugging",
+      "port": 9229,
+      "request": "attach",
+      "type": "node",
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/home/vcap/app"
     }
   ]
 }

@@ -12,6 +12,7 @@
   "dependencies": {
     "@cap-js/sqlite": "^2.0.2",
     "@sap/cds": "^9.3.1",
+    "@sap/xsenv": "^6.0.0",
     "@xmldom/xmldom": "^0.8.10",
     "axios": "^1.12.2",
     "xml-crypto": "^6.1.2"

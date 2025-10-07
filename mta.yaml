@@ -1,6 +1,13 @@
 _schema-version: '3.1'
 ID: cap-saml-converter
 version: 1.0.0
+
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npx cds build --production
+
 modules:
   - name: cap-saml-converter-srv
     type: nodejs
@@ -10,7 +17,7 @@ modules:
     parameters:
       memory: 256M
       disk-quota: 256M
-      command: node server.js
+      command: npx cds-serve
     requires:
       - name: cap-saml-converter-uaa
 
