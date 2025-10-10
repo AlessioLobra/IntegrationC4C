@@ -4,9 +4,9 @@ const fs = require('fs');
 const crypto = require('crypto');
 const axios = require('axios');
 const xsenv = require('@sap/xsenv');
-
-// xml-crypto per la firma
 const { SignedXml } = require('xml-crypto');
+// XML builder per l’output
+const { create } = require('xmlbuilder2');
 
 // Utility tempo
 function isoNow() {
@@ -47,7 +47,7 @@ function buildAssertionXml({ issuer, subjectEmail, audience, recipient }) {
 `.trim();
 
   return { xml, id, issueInstant, notBefore, notOnOrAfter };
-} // SAML Bearer richiede NotOnOrAfter e Recipient coerenti con il token endpoint [web:1][web:11]
+}
 
 // Firma XML-DSIG enveloped su Assertion
 function signAssertionXml(xml, keyPem, certPem) {
@@ -97,7 +97,6 @@ function readXsuaa() {
 
 // Lettura certificati da UPS o ENV (+ issuer/recipient opzionali)
 function readCerts() {
-  // 1) User-Provided Service tag 'certs' con campi opzionali issuer/recipient
   try {
     const services = xsenv.getServices({ certs: { tag: 'certs' } });
     if (services?.certs) {
@@ -107,14 +106,13 @@ function readCerts() {
         certPath: services.certs.certPath || null,
         keyPath: services.certs.keyPath || null,
         issuer: services.certs.issuer || null,
-        recipient: services.certs.recipient || null // tipicamente uguale al token endpoint
+        recipient: services.certs.recipient || null
       };
     }
   } catch (e) {
-    // ignora e passa al fallback
+    // ignore
   }
 
-  // 2) ENV base64
   const certFromB64 = process.env.CERT_PEM_B64
     ? Buffer.from(process.env.CERT_PEM_B64, 'base64').toString('utf8')
     : null;
@@ -122,19 +120,15 @@ function readCerts() {
     ? Buffer.from(process.env.KEY_PEM_B64, 'base64').toString('utf8')
     : null;
 
-  // 3) ENV plain text (già PEM) + issuer/recipient opzionali
   const certPlain = process.env.CERT || null;
   const keyPlain = process.env.KEY || null;
 
-  // Prefer dedicare env specifiche per il blocco certs
-  const issuerEnv = process.env.ISSUER || process.env.ISSUER || null;
-  const recipientEnv = process.env.RECIPIENT || process.env.RECIPIENT || process.env.TOKEN_ENDPOINT || null;
+  const issuerEnv = process.env.SAML_ISSUER || null;
+  const recipientEnv = process.env.RECIPIENT || process.env.TOKEN_ENDPOINT || null;
 
-  // 4) PATH su filesystem
   const certPath = process.env.CERT_PATH || null;
   const keyPath = process.env.KEY_PATH || null;
 
-  // 5) Ritorna priorizzando: user-provided > base64 > plain > path
   return {
     cert: certFromB64 || certPlain || null,
     key: keyFromB64 || keyPlain || null,
@@ -152,7 +146,6 @@ function getConfigFromEnv(req) {
 
   const email = req.data.email || process.env.SAML_SUBJECT_EMAIL;
 
-  // Precedenze issuer: req > SAML_ISSUER > xsuaa.xsappname > certs.issuer > default
   const issuer = req.data.issuer
     || process.env.SAML_ISSUER
     || (certs && certs.issuer)
@@ -163,7 +156,6 @@ function getConfigFromEnv(req) {
     || (xsuaa && (xsuaa.url || xsuaa.uaa_domain))
     || '';
 
-  // Precedenze tokenEndpoint (recipient): req > TOKEN_ENDPOINT/xsuaa > certs.recipient
   const tokenEndpoint = req.data.tokenEndpoint
     || process.env.TOKEN_ENDPOINT
     || (certs && certs.recipient);
@@ -176,11 +168,9 @@ function getConfigFromEnv(req) {
     || process.env.CLIENT_SECRET
     || (xsuaa && (xsuaa.clientsecret || xsuaa.client_secret));
 
-  // Cert PEM/KEY: preferisci contenuto inline poi path
   let certPem = certs && certs.cert ? certs.cert : null;
   let keyPem = certs && certs.key ? certs.key : null;
 
-  // Fix: leggere dai path corretti (certPath/keyPath)
   if (!certPem && certs && certs.certPath) certPem = fs.readFileSync(certs.certPath, 'utf8');
   if (!keyPem && certs && certs.keyPath) keyPem = fs.readFileSync(certs.keyPath, 'utf8');
 
@@ -205,7 +195,7 @@ module.exports = cds.service.impl(function () {
       const signedXml = signAssertionXml(built.xml, cfg.keyPem, cfg.certPem);
 
       // Epoch millis della scadenza SAML (NotOnOrAfter)
-      const expires = new Date(built.notOnOrAfter).getTime(); // Unix time in ms
+      const expires = new Date(built.notOnOrAfter).getTime();
 
       const samlAssertionB64 = Buffer.from(signedXml, 'utf8').toString('base64');
 
@@ -221,13 +211,35 @@ module.exports = cds.service.impl(function () {
         validateStatus: (s) => s >= 200 && s < 300
       });
 
-      return {
-        assertionXml: signedXml,
-        access_token: resp.data.access_token,
-        token_type: resp.data.token_type,
-        expires_in: resp.data.expires_in,
-        expires // Unix epoch in millisecondi
-      };
+      // Costruzione XML di risposta: 
+      // <Token xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+      //   <Token>
+      //     <data>{expires}</data>
+      //     <user_name>{email}</user_name>
+      //     <Token>Bearer {access_token}</Token>
+      //   </Token>
+      // </Token>
+      const xmlDoc = create({ version: '1.0' })
+        .ele('Token', { 'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance' })
+          .ele('Token')
+            .ele('data').txt(String(expires)).up()
+            .ele('user_name').txt(String(cfg.email || '')).up()
+            .ele('Token').txt(`Bearer ${resp.data.access_token}`).up()
+          .up()
+        .up()
+        .end({ prettyPrint: false });
+
+      // Imposta Content-Type e invia l’XML
+      const res = req.http?.res || req._?.res || req.res; // fallback difensivo
+      if (res) {
+        res.set('Content-Type', 'application/xml');
+        res.send(xmlDoc);
+        return; // evita doppie risposte
+      }
+
+      // Fallback (se per qualche motivo non c'è res HTTP)
+      return xmlDoc;
+
     } catch (err) {
       const isAxios = !!(err && err.isAxiosError);
       const status = isAxios && err.response ? err.response.status : 500;
