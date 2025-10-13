@@ -16,7 +16,7 @@ modules:
       builder: npm
     parameters:
       memory: 256M
-      disk-quota: 256M
+      disk-quota: 512M
       command: npx cds-serve
     requires:
       - name: cap-saml-converter-uaa
